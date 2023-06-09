@@ -1,0 +1,60 @@
+/* @import '@fontsource/fira-mono'; */
+
+@font-face {
+	font-family: 'roboto-condensed';
+	font-style: normal;
+	src: url('$lib/fonts/roboto-condensed.regular.ttf');
+}
+
+
+:root {
+
+	--color-bg-0: rgb(199, 199, 199);
+	--color-bg-1: hsl(0, 0%, 92%);
+	--color-bg-2: hsl(0, 0%, 100%);
+	--color-theme-1: #ff3e00;
+	--color-theme-2: #2e2e2e;
+	--color-text: rgba(0, 0, 0, 1.0);
+	--column-width: 42rem;
+	--column-margin-top: 4rem;
+
+	color: var(--color-text);
+	font-family: 'roboto-condensed';
+}
+
+body {
+	/* display: flex;
+	flex-direction: column;
+	justify-content: center;
+	align-items: center; */
+	margin: 0;
+	/* box-sizing: content-box; */
+
+	width: 100vw;
+	height: 100vh;
+	scale: 100%;
+
+	/* min-height: 100vh; */
+	margin: 0;
+	border: none;
+	padding: 0;
+	background-attachment: fixed;
+	background-color: var(--color-bg-1);
+	background-size: 100vw 100vh;
+	background-image: radial-gradient(
+			50% 50% at 50% 50%,
+			rgba(255, 255, 255, 0.75) 0%,
+			rgba(255, 255, 255, 0) 100%
+		),
+		linear-gradient(180deg, var(--color-bg-0) 0%, var(--color-bg-1) 20%, var(--color-bg-2) 70%);
+	text-align: center;
+}
+
+h1 {
+	font-size: 250%;
+}
+
+h2 {
+	font-size: 125%;
+	color: rgba(50, 50, 50, 1.0)
+}
