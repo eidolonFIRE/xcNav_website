@@ -7,6 +7,9 @@
 	import goto_github from '$lib/images/vendor/GitHub-Mark-120px-plus.png';
 	import goto_discord from '$lib/images/vendor/icon_clyde_white_RGB.svg';
 
+	import feature_location_sharing from '$lib/images/red_arrow_group.svg';
+	import feature_doc_sync from '$lib/images/doc_sync.svg';
+
 	/**
 	 * Follow a URL
 	 * @param {string} url
@@ -69,9 +72,44 @@
 
 		<img id="app_image" src={app_image} alt="app screenshot" />
 	</div>
+
+	<div style="height: 5em" />
+
+	<h1>Features</h1>
+	<div class="row" style="align-items: start">
+		<div>
+			<h2>Group Coordination</h2>
+			<ul>
+				<li>Live location sharing</li>
+				<li>Syncronized flight plan</li>
+				<li>Text Chat (with text-to-speech)</li>
+			</ul>
+		</div>
+
+		<!-- Spacer -->
+		<div id="main_spacer" />
+
+		<div>
+			<h2>Tools and Instruments</h2>
+			<ul>
+				<li>Audio cues</li>
+				<li>ADSB-in</li>
+				<li>Airspace overlay</li>
+				<li>Ground elevation</li>
+				<li>Adanced wind indicator</li>
+				<li>Log book with in-depth stats</li>
+				<li>Fuel usage calculations</li>
+			</ul>
+		</div>
+	</div>
 </section>
 
 <style>
+	ul {
+		/* list-style-position: inside; */
+		text-align: start;
+	}
+
 	#title {
 		padding-top: 1rem;
 	}
@@ -95,6 +133,13 @@
 		/* flex: 0.8; */
 		/* flex-grow: 1;
 		flex-shrink: 1; */
+	}
+
+	.col {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
 	}
 
 	.row {

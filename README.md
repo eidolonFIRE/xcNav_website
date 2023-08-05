@@ -36,3 +36,6 @@ npm run build
 You can preview the production build with `npm run preview`.
 
 > To deploy your app, you may need to install an [adapter](https://kit.svelte.dev/docs/adapters) for your target environment.
+
+# NOTES
+`netsh interface portproxy add v4tov4 listenport=5173 connectaddress=172.26.152.88 connectport=5173`
