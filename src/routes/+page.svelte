@@ -17,6 +17,7 @@
 	function goto(url) {
 		window.location.href = url;
 	}
+	export const prerender = true;
 </script>
 
 <section>
