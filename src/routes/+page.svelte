@@ -97,7 +97,7 @@
 				<li>ADSB-in</li>
 				<li>Airspace overlay</li>
 				<li>Ground elevation</li>
-				<li>Adanced wind indicator</li>
+				<li>Advanced wind indicator</li>
 				<li>Log book with in-depth stats</li>
 				<li>Fuel usage calculations</li>
 			</ul>
