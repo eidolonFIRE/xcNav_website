@@ -34,6 +34,22 @@ const XC_MAX_TRACK_POINTS = 4000;
 /** Keep showing the last good snapshot this long while the reflector is down or restarting. */
 const XC_DEGRADED_GRACE = 30 * 60;
 
+/*
+ * Rate limits. Each can be changed in the config file by defining the XCNAV_* constant named below.
+ * A "client" is one IP address, or one /64 network for IPv6.
+ */
+/** API requests per minute per client (XCNAV_RATE_PER_MIN). Bursts up to the same number are allowed. */
+const XC_RATE_PER_MIN = 60;
+/** Reflector fetches one client may cause per minute (XCNAV_CLIENT_REFRESH_PER_MIN). */
+const XC_CLIENT_REFRESH_PER_MIN = 10;
+const XC_CLIENT_REFRESH_BURST = 10;
+/** Reflector fetches per minute for the whole site (XCNAV_REFLECTOR_PER_MIN). */
+const XC_REFLECTOR_PER_MIN = 120;
+const XC_REFLECTOR_BURST = 30;
+/** After a reflector error, wait this long before calling it again. Doubles per error up to the max. */
+const XC_BACKOFF_MIN = 15.0;
+const XC_BACKOFF_MAX = 300.0;
+
 const XC_REFLECTOR_URL = 'https://ec2-54-177-162-94.us-west-1.compute.amazonaws.com/group/';
 const XC_REFLECTOR_PIN = 'sha256//x01uRX7Jy3czU2H+cSefO0XYf+uL7dYakGHhOcftzmU=';
 
@@ -183,6 +199,98 @@ function xc_locked_refresh(string $lockPath, callable $isFresh, callable $refres
     }
 }
 
+/** Send 429 with a Retry-After header and stop. */
+function xc_too_many(float $wait): void
+{
+    header('Retry-After: ' . (string) max(1, (int) ceil($wait)));
+    xc_fail(429, 'Too many requests. Please wait a moment.');
+}
+
+/** Rate limit key for the caller. IPv6 addresses are grouped by /64, because one host often owns a whole /64. */
+function xc_client_key(): string
+{
+    $ip = (string) ($_SERVER['REMOTE_ADDR'] ?? '');
+    $bin = @inet_pton($ip);
+    if ($bin === false) {
+        $bin = $ip;
+    } elseif (strlen($bin) === 16) {
+        $bin = substr($bin, 0, 8);
+    }
+    return substr(hash('sha256', 'xcnav-rl|' . $bin), 0, 32);
+}
+
+/** A rate from the config file, or the default. */
+function xc_rate(string $configName, float $default): float
+{
+    $v = xc_config($configName);
+    return (is_int($v) || is_float($v)) && $v > 0 ? (float) $v : $default;
+}
+
+/**
+ * Take one token from a token bucket stored in the cache folder.
+ * Returns 0 when a token was taken, or the seconds until one is available.
+ * File errors allow the request, so a cache problem never locks every viewer out.
+ */
+function xc_take_token(string $name, float $capacity, float $perSecond): float
+{
+    $fh = @fopen(xc_cache_dir() . '/rl_' . $name . '.json', 'c+');
+    if ($fh === false) {
+        return 0.0;
+    }
+    try {
+        if (!flock($fh, LOCK_EX)) {
+            return 0.0;
+        }
+        $now = microtime(true);
+        $data = json_decode((string) stream_get_contents($fh), true);
+        $tokens = $capacity;
+        if (is_array($data) && isset($data['t'], $data['at'])) {
+            $tokens = min($capacity, (float) $data['t'] + max(0.0, $now - (float) $data['at']) * $perSecond);
+        }
+        $wait = 0.0;
+        if ($tokens >= 1.0) {
+            $tokens -= 1.0;
+        } else {
+            $wait = (1.0 - $tokens) / $perSecond;
+        }
+        ftruncate($fh, 0);
+        rewind($fh);
+        fwrite($fh, json_encode(['t' => round($tokens, 4), 'at' => round($now, 3)]));
+        fflush($fh);
+        return $wait;
+    } finally {
+        flock($fh, LOCK_UN);
+        fclose($fh);
+    }
+}
+
+/** Limit API requests per client. Sends 429 and stops when the client is over the limit. */
+function xc_rate_limit_request(): void
+{
+    $perMin = xc_rate('XCNAV_RATE_PER_MIN', XC_RATE_PER_MIN);
+    $wait = xc_take_token('req_' . xc_client_key(), $perMin, $perMin / 60);
+    if ($wait > 0) {
+        xc_too_many($wait);
+    }
+}
+
+/**
+ * Take one reflector fetch from this client's budget and from the site-wide budget.
+ * Returns 0 when the fetch may go ahead, or the seconds to wait.
+ */
+function xc_reflector_budget(): float
+{
+    $client = xc_take_token(
+        'refresh_' . xc_client_key(),
+        XC_CLIENT_REFRESH_BURST,
+        xc_rate('XCNAV_CLIENT_REFRESH_PER_MIN', XC_CLIENT_REFRESH_PER_MIN) / 60
+    );
+    if ($client > 0) {
+        return $client;
+    }
+    return xc_take_token('reflector', XC_REFLECTOR_BURST, xc_rate('XCNAV_REFLECTOR_PER_MIN', XC_REFLECTOR_PER_MIN) / 60);
+}
+
 /** Path of the cached snapshot for a group. The id is already validated. */
 function xc_group_cache_path(string $groupId): string
 {
@@ -204,6 +312,10 @@ function xc_maybe_cleanup(): void
         }
         $base = basename($file);
         $maxAge = strpos($base, 'avatar_') === 0 ? 14 * 86400 : XC_MAX_AGE + 3600;
+        if (strpos($base, 'rl_') === 0) {
+            // A bucket untouched this long is full again, so deleting it changes nothing.
+            $maxAge = 3600;
+        }
         if (substr($base, -4) === '.tmp') {
             $maxAge = 600;
         }

@@ -6,6 +6,9 @@
  * - The reflector is called at most once per XC_GROUP_TTL per group. Other requests read the disk cache.
  * - The reflector only returns current positions, so tracks are built here from the snapshots we fetch.
  * - `since` (the `cursor` from an earlier response) limits track points to ones added after it.
+ * - Rate limits: requests per client, reflector fetches per client and for the whole site, and a
+ *   backoff after reflector errors. Over a fetch budget, the last snapshot is served unchanged.
+ * - `next` in the response tells the client how many seconds to wait before it polls again.
  */
 
 declare(strict_types=1);
@@ -13,12 +16,13 @@ declare(strict_types=1);
 require __DIR__ . '/_common.php';
 
 xc_require_get();
+xc_load_config();
+xc_rate_limit_request();
 $groupId = xc_param('g', XC_ID_RE, 'Invalid group code.');
 $since = isset($_GET['since']) && is_string($_GET['since']) && is_numeric($_GET['since'])
     ? (float) $_GET['since']
     : 0.0;
 
-xc_load_config();
 if (!defined('GROUP_API_TOKEN') || !is_string(GROUP_API_TOKEN) || GROUP_API_TOKEN === '') {
     throw new RuntimeException('GROUP_API_TOKEN is not configured');
 }
@@ -35,10 +39,25 @@ $isFresh = function () use ($cachePath): ?array {
 $state = $isFresh();
 if ($state === null) {
     $state = xc_locked_refresh($cachePath . '.lock', $isFresh, function () use ($cachePath, $groupId): array {
-        $state = xc_refresh_group($groupId, xc_read_json($cachePath));
+        $prev = xc_read_json($cachePath);
+        $wait = xc_reflector_budget();
+        if ($wait > 0) {
+            // Over budget. Serve the last snapshot without writing it, so the next request
+            // within budget still refreshes it. A throttled client can never delay a refresh.
+            if ($prev !== null && ($prev['v'] ?? 0) === 1) {
+                $prev['throttled'] = $wait;
+                return $prev;
+            }
+            return ['v' => 0, 'throttled' => $wait];
+        }
+        $state = xc_refresh_group($groupId, $prev);
         xc_write_atomic($cachePath, json_encode($state, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION | JSON_INVALID_UTF8_SUBSTITUTE));
         return $state;
     });
+}
+
+if (($state['v'] ?? 0) !== 1) {
+    xc_too_many((float) ($state['throttled'] ?? XC_GROUP_TTL));
 }
 
 xc_maybe_cleanup();
@@ -48,9 +67,42 @@ xc_respond($groupId, $state, $since);
 // ---------------------------------------------------------------------------
 
 /**
- * Call the reflector. Returns [httpStatus, decodedBody|null], or [0, null] on a network or TLS error.
+ * Call the reflector unless it failed recently. Returns [httpStatus, decodedBody|null],
+ * or [0, null] on an error or while backing off.
+ * Each error doubles the wait before the next call, from XC_BACKOFF_MIN up to XC_BACKOFF_MAX.
+ * 404 and 400 are normal answers for unknown groups and do not count as errors.
  */
 function xc_fetch_reflector(string $groupId): array
+{
+    $path = xc_cache_dir() . '/reflector_backoff.json';
+    $backoff = xc_read_json($path);
+    if ($backoff !== null && microtime(true) < (float) ($backoff['until'] ?? 0)) {
+        return [0, null];
+    }
+
+    [$status, $data] = xc_request_reflector($groupId);
+
+    if ($status === 200 || $status === 404 || $status === 400) {
+        if ($backoff !== null) {
+            @unlink($path);
+        }
+    } else {
+        $fails = (int) ($backoff['fails'] ?? 0) + 1;
+        $delay = min(XC_BACKOFF_MAX, XC_BACKOFF_MIN * 2 ** min($fails - 1, 10));
+        error_log('xcnav api: reflector error ' . $fails . ' in a row, next call in ' . (int) $delay . ' s');
+        try {
+            xc_write_atomic($path, (string) json_encode(['fails' => $fails, 'until' => microtime(true) + $delay]));
+        } catch (RuntimeException $e) {
+            error_log('xcnav api: cannot save reflector backoff');
+        }
+    }
+    return [$status, $data];
+}
+
+/**
+ * Make one reflector request. Returns [httpStatus, decodedBody|null], or [0, null] on a network or TLS error.
+ */
+function xc_request_reflector(string $groupId): array
 {
     $ch = curl_init(XC_REFLECTOR_URL . rawurlencode($groupId));
     if ($ch === false) {
@@ -279,11 +331,14 @@ function xc_respond(string $groupId, array $state, float $since): void
         return;
     }
     if ($status === 'unavailable') {
+        header('Retry-After: 30');
         xc_send_json(503, ['error' => 'Live data is unavailable right now.'], 'no-store');
         return;
     }
 
     $now = microtime(true);
+    // Seconds until this snapshot goes stale, or until the client's fetch budget allows a refresh.
+    $next = max(1.0, (float) $state['fetched'] + XC_GROUP_TTL - $now, (float) ($state['throttled'] ?? 0));
     $avatars = is_string(xc_config('PROFILE_STORE_URL')) && xc_config('PROFILE_STORE_URL') !== '';
     $pilots = [];
     foreach ($state['pilots'] ?? [] as $id => $p) {
@@ -315,6 +370,8 @@ function xc_respond(string $groupId, array $state, float $since): void
         // Pass back as `since` to get only track points added after this snapshot.
         'cursor' => round((float) $state['fetched'], 3),
         'degraded' => $status === 'degraded',
+        // Seconds to wait before polling again.
+        'next' => round($next, 1),
         'pilots' => $pilots,
         'waypoints' => $state['waypoints'] ?? [],
     ]);
