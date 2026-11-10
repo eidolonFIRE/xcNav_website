@@ -1,4 +1,4 @@
-import{c as N}from"./expression.4cc6bf14.js";import{g as f,c as v,r as m,f as k,A as M,d as V,e as L,b as S,G as z,h as y,i as R,C as $,j as _}from"./liveMap.5b8c0de5.js";import{k as fe}from"./liveMap.5b8c0de5.js";const B=`fn arithmetic_add(x: {TYPE}, y: {TYPE}) -> {TYPE} {
+import{c as N}from"./expression.4cc6bf14.js";import{g as f,c as v,r as m,f as k,A as M,d as V,e as L,b as S,G as z,h as y,i as R,C as $,j as _}from"./liveMap.e7c6bd20.js";import{k as fe}from"./liveMap.e7c6bd20.js";const B=`fn arithmetic_add(x: {TYPE}, y: {TYPE}) -> {TYPE} {
   return x + y;
 }
 

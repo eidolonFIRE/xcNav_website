@@ -18,7 +18,8 @@ const XC_AVATAR_MAX_BYTES = 1048576;
 xc_require_get();
 xc_load_config();
 xc_rate_limit_request();
-$groupId = xc_param('g', XC_ID_RE, 'Invalid request.');
+// Group ids are lower case, as in group.php.
+$groupId = strtolower(xc_param('g', XC_ID_RE, 'Invalid request.'));
 $pilotId = xc_param('p', XC_ID_RE, 'Invalid request.');
 $hash = xc_param('h', XC_HASH_RE, 'Invalid request.');
 

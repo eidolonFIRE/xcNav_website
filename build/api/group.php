@@ -18,7 +18,8 @@ require __DIR__ . '/_common.php';
 xc_require_get();
 xc_load_config();
 xc_rate_limit_request();
-$groupId = xc_param('g', XC_ID_RE, 'Invalid group code.');
+// The reflector only knows lower case group ids.
+$groupId = strtolower(xc_param('g', XC_ID_RE, 'Invalid group code.'));
 $since = isset($_GET['since']) && is_string($_GET['since']) && is_numeric($_GET['since'])
     ? (float) $_GET['since']
     : 0.0;

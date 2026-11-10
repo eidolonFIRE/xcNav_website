@@ -62,7 +62,7 @@
 	});
 
 	function readUrl() {
-		const g = new URLSearchParams(window.location.search).get('g')?.trim() ?? '';
+		const g = new URLSearchParams(window.location.search).get('g')?.trim().toLowerCase() ?? '';
 		if (g && GROUP_ID_RE.test(g)) {
 			input = g;
 			if (g !== groupId) start(g, false);
@@ -72,7 +72,7 @@
 	}
 
 	function submit() {
-		const g = input.trim();
+		const g = input.trim().toLowerCase();
 		if (!GROUP_ID_RE.test(g)) {
 			inputError = 'Enter the group code shown in the xcNav app, for example c21557.';
 			return;
