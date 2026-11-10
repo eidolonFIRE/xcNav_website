@@ -1,0 +1,2 @@
+# Module scripts and workers must be served with a JavaScript MIME type.
+AddType text/javascript .mjs

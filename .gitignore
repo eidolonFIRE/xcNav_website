@@ -7,3 +7,7 @@ node_modules
 !.env.example
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# Real secrets for the spectator API live outside the repo
+server/xcnav-config.php
+/xcnav-cache/

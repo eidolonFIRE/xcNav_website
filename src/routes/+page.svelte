@@ -9,6 +9,7 @@
 
 	import feature_location_sharing from '$lib/images/red_arrow_group.svg';
 	import feature_doc_sync from '$lib/images/doc_sync.svg';
+	import { base } from '$app/paths';
 
 	/**
 	 * Follow a URL
@@ -21,6 +22,8 @@
 </script>
 
 <section>
+	<a class="watch_live" href="{base}/live/">Watch a group live</a>
+
 	<div class="row" id="main_row">
 		<div id="col_a">
 			<h1 id="title">Welcome to xcNav</h1>
@@ -115,6 +118,13 @@
 		padding-top: 1rem;
 	}
 
+	/* Leave room for the top-left "Watch a group live" button on narrow screens */
+	@media (max-width: 700px) {
+		#title {
+			padding-top: 4rem;
+		}
+	}
+
 	#main_row {
 		flex-wrap: wrap;
 		justify-content: center;
@@ -161,6 +171,27 @@
 		height: 5rem;
 		max-height: calc(min(4rem, 10vw));
 		margin: 1rem;
+	}
+
+	.watch_live {
+		position: absolute;
+		top: 1rem;
+		left: 1rem;
+		z-index: 10;
+		display: inline-block;
+		padding: 0.7rem 1.6rem;
+		border-radius: 999px;
+		background: var(--color-theme-1);
+		color: #fff;
+		font-size: 1.2rem;
+		font-weight: bold;
+		text-decoration: none;
+		box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+	}
+
+	.watch_live:hover,
+	.watch_live:focus-visible {
+		filter: brightness(1.08);
 	}
 
 	#app_image {

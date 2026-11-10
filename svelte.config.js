@@ -22,6 +22,7 @@ import adapter from '@sveltejs/adapter-static';
 
 
 export default {
+    preprocess: vitePreprocess(),
     kit: {
         adapter: adapter({
             // default options are shown. On some platforms

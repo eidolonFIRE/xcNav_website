@@ -4,6 +4,7 @@
 	"private": true,
 	"scripts": {
 		"dev": "vite dev",
+		"dev:api": "XCNAV_CONFIG=\"$PWD/server/xcnav-config.php\" php -S 127.0.0.1:8080 -t static",
 		"build": "vite build",
 		"preview": "vite preview",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
@@ -30,5 +31,10 @@
 		"vite": "^4.3.0",
 		"vitest": "^0.25.3"
 	},
-	"type": "module"
+	"type": "module",
+	"dependencies": {
+		"@deck.gl/core": "9.4.0",
+		"@deck.gl/layers": "9.4.0",
+		"maplibre-gl": "6.16.0"
+	}
 }
